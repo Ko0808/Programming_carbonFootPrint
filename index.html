@@ -163,7 +163,7 @@
                         <input type="text" id="user-residence" placeholder="例: Selangor">
                     </div>
                     <div>
-                        <button py-click="save_profile">プロフィールを保存</button>
+                        <button py-click="app.save_user_profile">プロフィールを保存</button>
                     </div>
                 </div>
             </div>
@@ -205,7 +205,7 @@
                     <input type="text" id="origin" placeholder="例: Pahang, Malaysia または Thailand">
                 </div>
                 <div>
-                    <button py-click="add_food_entry">今日のリストに追加</button>
+                    <button py-click="app.add_food_entry">今日のリストに追加</button>
                 </div>
             </div>
             
@@ -218,7 +218,7 @@
                     <!-- ここに今日のリストが追加される -->
                 </tbody>
             </table>
-            <button py-click="calculate_daily_summary" class="secondary" style="margin-top: 1em;">この日のCFPを計算・集計する</button>
+            <button py-click="app.calculate_daily_summary" class="secondary" style="margin-top: 1em;">この日のCFPを計算・集計する</button>
 
             <!-- 集計結果テーブル -->
             <div id="summary-section" style="display: none;">
@@ -249,271 +249,233 @@
 
     <py-script>
         import json
+        import math 
+        import asyncio
         from datetime import datetime
         from pyscript import document, window
         from js import alert
-        # Geopyライブラリをインポート
-        import math 
-        import asyncio
-        
-        # --- 定数 ---
-        DB_PATH = './Database.json'
-        # 輸送1トン・1kmあたりのCO2排出係数 (kg-CO2/t-km) を kg-CO2/kg-km に変換
-        # 例: 0.1 kg-CO2/t-km = 0.0001 kg-CO2/kg-km
-        EMISSION_FACTOR_PER_KM = 0.0002 
-        TREE_ABSORPTION_KG_PER_YEAR = 14  # スギの木1本が年間に吸収するCO2量
 
-        # --- グローバル変数 ---
-        food_database = {}
-        daily_entries = [] # 今日の入力リスト
+        # --- クラス定義 ---
 
-        # --- ローディング表示 ---
-        def show_loading(is_visible):
-            display_style = "flex" if is_visible else "none"
-            document.getElementById("loading").style.display = display_style
+        class User:
+            """ユーザー情報を管理するクラス"""
+            def __init__(self):
+                self.name = ""
+                self.residence = ""
+                self.storage_key = 'user_profile'
 
-        # --- プロフィール管理 ---
-        def save_profile(event):
-            name = document.getElementById("user-name").value
-            residence = document.getElementById("user-residence").value
-            if not name or not residence:
-                alert("名前と居住地を入力してください。")
-                return
+            def is_registered(self):
+                """ユーザー情報が登録されているか確認する"""
+                return bool(self.name and self.residence)
+
+            def save(self, name, residence):
+                """プロフィールを保存する"""
+                self.name = name
+                self.residence = residence
+                profile = {"name": self.name, "residence": self.residence}
+                window.localStorage.setItem(self.storage_key, json.dumps(profile))
             
-            profile = {"name": name, "residence": residence}
-            window.localStorage.setItem('user_profile', json.dumps(profile))
-            alert("プロフィールを保存しました。")
-            check_profile()
-
-        def check_profile():
-            profile_str = window.localStorage.getItem('user_profile')
-            if profile_str:
-                profile = json.loads(profile_str)
-                document.getElementById("profile-title").innerText = f"ようこそ、{profile['name']}さん！"
-                document.getElementById("profile-display").innerText = f"居住地: {profile['residence']}"
-                document.getElementById("profile-setup").style.display = "none"
-                document.getElementById("main-app").style.display = "block"
-                document.getElementById("dashboard-section").style.display = "block"
-                return True
-            else:
-                document.getElementById("profile-setup").style.display = "block"
-                document.getElementById("main-app").style.display = "none"
-                document.getElementById("dashboard-section").style.display = "none"
+            def load(self):
+                """プロフィールを読み込む"""
+                profile_str = window.localStorage.getItem(self.storage_key)
+                if profile_str:
+                    profile = json.loads(profile_str)
+                    self.name = profile.get("name", "")
+                    self.residence = profile.get("residence", "")
+                    return True
                 return False
 
-        # --- 距離計算 ---
-        async def get_coords_from_api(place_name):
-            """ Nominatim APIを直接呼び出して地名から座標を取得する """
-            query = place_name.replace(" ", "+")
-            url = f"https://nominatim.openstreetmap.org/search?q={query}&format=jsonv2&limit=1"
-            try:
-                response = await window.fetch(url, method="GET")
-                if not response.ok:
-                    return None
-                data = (await response.json()).to_py()
-                if data:
-                    return (float(data[0]['lat']), float(data[0]['lon']))
-                return None
-            except Exception as e:
-                print(f"API request failed: {e}")
-                return None
+        class CFPApp:
+            """アプリケーション全体のロジックを管理するクラス"""
+            DB_PATH = './Database.json'
+            EMISSION_FACTOR_PER_KM = 0.0002
+            TREE_ABSORPTION_KG_PER_YEAR = 14
+            RECORDS_STORAGE_KEY = 'all_records'
 
-        def haversine_distance(coords1, coords2):
-            """ 2つの座標間の距離を計算する（ハヴァサイン公式） """
-            R = 6371  # 地球の半径 (km)
-            lat1, lon1 = coords1
-            lat2, lon2 = coords2
+            def __init__(self):
+                self.user = User()
+                self.food_database = {}
+                self.daily_entries = []
+                self.all_records = []
 
-            phi1, phi2 = math.radians(lat1), math.radians(lat2)
-            dphi = math.radians(lat2 - lat1)
-            dlambda = math.radians(lon2 - lon1)
+            # --- UI制御 ---
+            def show_loading(self, is_visible):
+                display_style = "flex" if is_visible else "none"
+                document.getElementById("loading").style.display = display_style
 
-            a = math.sin(dphi / 2)**2 + \
-                math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2)**2
-
-            return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-
-        # この関数を追加してください
-        async def get_distance(origin, destination):
-            """ 2つの地名から距離を計算する """
-            try:
-                # 非同期で両方の座標を取得する
-                coords1_task = get_coords_from_api(origin)
-                coords2_task = get_coords_from_api(destination)
-                coords1, coords2 = await asyncio.gather(coords1_task, coords2_task)
-
-                # 両方の座標が正常に取得できた場合のみ、距離を計算
-                if coords1 and coords2:
-                    return haversine_distance(coords1, coords2)
+            def update_ui(self):
+                """UI全体の状態を更新する"""
+                if self.user.is_registered():
+                    document.getElementById("profile-title").innerText = f"ようこそ、{self.user.name}さん！"
+                    document.getElementById("profile-display").innerText = f"居住地: {self.user.residence}"
+                    document.getElementById("profile-setup").style.display = "none"
+                    document.getElementById("main-app").style.display = "block"
+                    document.getElementById("dashboard-section").style.display = "block"
+                    self.update_dashboard()
                 else:
-                    missing_places = []
-                    if not coords1:
-                        missing_places.append(origin)
-                    if not coords2:
-                        missing_places.append(destination)
-                    
-                    alert(f"地名を特定できませんでした: {', '.join(missing_places)}")
-                    return None
-            except Exception as e:
-                print(f"Distance calculation error: {e}")
-                alert("距離の計算中に予期せぬエラーが発生しました。")
+                    document.getElementById("profile-setup").style.display = "block"
+                    document.getElementById("main-app").style.display = "none"
+                    document.getElementById("dashboard-section").style.display = "none"
+
+            # --- プロフィール関連 ---
+            def save_user_profile(self, event):
+                name = document.getElementById("user-name").value
+                residence = document.getElementById("user-residence").value
+                if not name or not residence:
+                    alert("名前と居住地を入力してください。")
+                    return
+                
+                self.user.save(name, residence)
+                alert("プロフィールを保存しました。")
+                self.update_ui()
+
+            # --- 距離計算 (非同期) ---
+            @staticmethod
+            async def get_coords_from_api(place_name):
+                query = place_name.replace(" ", "+")
+                url = f"https://nominatim.openstreetmap.org/search?q={query}&format=jsonv2&limit=1"
+                try:
+                    response = await window.fetch(url, method="GET")
+                    if not response.ok: return None
+                    data = (await response.json()).to_py()
+                    return (float(data[0]['lat']), float(data[0]['lon'])) if data else None
+                except Exception: return None
+
+            @staticmethod
+            def haversine_distance(coords1, coords2):
+                R = 6371  # 地球の半径 (km)
+                lat1, lon1 = map(math.radians, coords1)
+                lat2, lon2 = map(math.radians, coords2)
+                dlat = lat2 - lat1
+                dlon = lon2 - lon1
+                a = math.sin(dlat / 2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2)**2
+                return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+            async def get_distance(self, origin, destination):
+                coords1_task = self.get_coords_from_api(origin)
+                coords2_task = self.get_coords_from_api(destination)
+                coords1, coords2 = await asyncio.gather(coords1_task, coords2_task)
+                if coords1 and coords2:
+                    return self.haversine_distance(coords1, coords2)
+                alert(f"地名が特定できませんでした: {origin if not coords1 else ''} {destination if not coords2 else ''}")
                 return None
-            
-        # --- データ入力と表示 ---
-        def add_food_entry(event):
-            global daily_entries
-            food_id = document.getElementById("food-item").value
-            quantity = float(document.getElementById("quantity").value)
-            unit = document.getElementById("unit").value
-            origin = document.getElementById("origin").value
 
-            if not origin:
-                alert("産地を入力してください。")
-                return
+            # --- 食材リスト関連 ---
+            def add_food_entry(self, event):
+                food_id = document.getElementById("food-item").value
+                origin = document.getElementById("origin").value
+                if not origin:
+                    alert("産地を入力してください。")
+                    return
 
-            entry = {
-                "food_id": food_id,
-                "quantity": quantity,
-                "unit": unit,
-                "origin": origin
-            }
-            daily_entries.append(entry)
-            update_daily_list_table()
-
-        def update_daily_list_table():
-            table_body = document.querySelector("#daily-list-table tbody")
-            table_body.innerHTML = ""
-            for entry in daily_entries:
-                # food_databaseがPython辞書になったので、この書き方が最も安全で確実です
-                food_info = food_database.get(entry['food_id'], {})
-                food_name = food_info.get('name_jp', '不明')
-
-                row = document.createElement("tr")
-                row.innerHTML = f"<td>{food_name}</td><td>{entry['quantity']} {entry['unit']}</td><td>{entry['origin']}</td>"
-                table_body.appendChild(row)
-
-        # --- 計算ロジック ---
-        async def calculate_daily_summary(event):
-            global daily_entries
-            if not daily_entries:
-                alert("今日のリストに食材を追加してください。")
-                return
-
-            show_loading(True)
-            profile = json.loads(window.localStorage.getItem('user_profile'))
-            user_residence = profile['residence']
-
-            summary_data = []
-            total_weight = 0
-            total_cfp = 0
-            total_domestic_cfp = 0
-
-            for entry in daily_entries:
-                food_info = food_database[entry['food_id']]
-                
-                # 重量換算
-                weight = entry['quantity']
-                if entry['unit'] == '個':
-                    if food_info['avg_weight_kg']:
-                        weight *= food_info['avg_weight_kg']
-                    else:
-                        alert(f"{food_info['name_jp']}は重量(kg)で入力してください。")
-                        show_loading(False)
-                        return
-                
-                # 距離計算
-                distance = await get_distance(entry['origin'], user_residence)
-                domestic_distance = await get_distance(food_info['domestic_origin'], user_residence)
-
-                if distance is None or domestic_distance is None:
-                    show_loading(False)
-                    return # 距離計算失敗
-                
-                # CFP計算
-                cfp = weight * distance * EMISSION_FACTOR_PER_KM
-                domestic_cfp = weight * domestic_distance * EMISSION_FACTOR_PER_KM
-
-                summary_data.append({
-                    "name": food_info['name_jp'],
-                    "weight": weight,
-                    "cfp": cfp,
-                    "domestic_cfp": domestic_cfp
+                self.daily_entries.append({
+                    "food_id": food_id,
+                    "quantity": float(document.getElementById("quantity").value),
+                    "unit": document.getElementById("unit").value,
+                    "origin": origin
                 })
-                total_weight += weight
-                total_cfp += cfp
-                total_domestic_cfp += domestic_cfp
-            
-            # 結果をテーブルに表示
-            summary_table_body = document.querySelector("#summary-table tbody")
-            summary_table_body.innerHTML = ""
-            for item in summary_data:
-                row = document.createElement("tr")
-                row.innerHTML = f"<td>{item['name']}</td><td>{item['weight']:.2f}</td><td>{item['cfp']:.2f}</td><td>{item['domestic_cfp']:.2f}</td>"
-                summary_table_body.appendChild(row)
+                self.update_daily_list_table()
 
-            document.getElementById("total-weight").innerText = f"{total_weight:.2f}"
-            document.getElementById("total-cfp").innerText = f"{total_cfp:.2f}"
-            document.getElementById("total-domestic-cfp").innerText = f"{total_domestic_cfp:.2f}"
-            document.getElementById("summary-section").style.display = "block"
+            def update_daily_list_table(self):
+                table_body = document.querySelector("#daily-list-table tbody")
+                table_body.innerHTML = ""
+                for entry in self.daily_entries:
+                    food_info = self.food_database.get(entry['food_id'], {})
+                    food_name = food_info.get('name_jp', '不明')
+                    row = document.createElement("tr")
+                    row.innerHTML = f"<td>{food_name}</td><td>{entry['quantity']} {entry['unit']}</td><td>{entry['origin']}</td>"
+                    table_body.appendChild(row)
 
-            # 累計データに保存
-            all_records_str = window.localStorage.getItem('all_records')
-            all_records = json.loads(all_records_str) if all_records_str else []
-            all_records.append({
-                "date": datetime.now().strftime('%Y-%m-%d'),
-                "total_cfp": total_cfp,
-                "total_domestic_cfp": total_domestic_cfp
-            })
-            window.localStorage.setItem('all_records', json.dumps(all_records))
+            # --- CFP計算と集計 ---
+            async def calculate_daily_summary(self, event):
+                if not self.daily_entries:
+                    alert("今日のリストに食材を追加してください。")
+                    return
 
-            # 今日のリストをリセット
-            daily_entries = []
-            update_daily_list_table()
-            update_dashboard()
-            show_loading(False)
+                self.show_loading(True)
+                summary_data, totals = [], {"weight": 0, "cfp": 0, "domestic_cfp": 0}
 
-        # --- ダッシュボード更新 ---
-        def update_dashboard():
-            all_records_str = window.localStorage.getItem('all_records')
-            all_records = json.loads(all_records_str) if all_records_str else []
+                for entry in self.daily_entries:
+                    food_info = self.food_database[entry['food_id']]
+                    weight = entry['quantity'] * (food_info['avg_weight_kg'] or 1)
+                    
+                    distance = await self.get_distance(entry['origin'], self.user.residence)
+                    domestic_distance = await self.get_distance(food_info['domestic_origin'], self.user.residence)
 
-            cumulative_cfp = sum(r['total_cfp'] for r in all_records)
-            cumulative_domestic_cfp = sum(r['total_domestic_cfp'] for r in all_records)
-            saved_cfp = cumulative_domestic_cfp - cumulative_cfp # ポテンシャル削減量
+                    if distance is None or domestic_distance is None:
+                        self.show_loading(False)
+                        return
 
-            trees_needed = cumulative_cfp / TREE_ABSORPTION_KG_PER_YEAR
+                    cfp = weight * distance * self.EMISSION_FACTOR_PER_KM
+                    domestic_cfp = weight * domestic_distance * self.EMISSION_FACTOR_PER_KM
+                    
+                    summary_data.append({"name": food_info['name_jp'], "weight": weight, "cfp": cfp, "domestic_cfp": domestic_cfp})
+                    totals["weight"] += weight
+                    totals["cfp"] += cfp
+                    totals["domestic_cfp"] += domestic_cfp
 
-            stats_div = document.getElementById("dashboard-stats")
-            stats_div.innerHTML = f"""
-                <p><strong>今までの累計CFP:</strong> {cumulative_cfp:.2f} kg-CO₂</p>
-                <p><strong>もし全て国産だったら:</strong> {cumulative_domestic_cfp:.2f} kg-CO₂</p>
-            """
-            
-            forest_div = document.getElementById("my-forest")
-            forest_div.textContent = "🌳" * int(trees_needed) if trees_needed > 0 else "まだ森はありません。記録を始めましょう！"
+                # 結果表示とデータ保存
+                self.display_summary_table(summary_data, totals)
+                self.all_records.append({
+                    "date": datetime.now().strftime('%Y-%m-%d'),
+                    "total_cfp": totals["cfp"],
+                })
+                window.localStorage.setItem(self.RECORDS_STORAGE_KEY, json.dumps(self.all_records))
+                
+                self.daily_entries = []
+                self.update_daily_list_table()
+                self.update_dashboard()
+                self.show_loading(False)
 
+            def display_summary_table(self, data, totals):
+                table_body = document.querySelector("#summary-table tbody")
+                table_body.innerHTML = ""
+                for item in data:
+                    row = document.createElement("tr")
+                    row.innerHTML = f"<td>{item['name']}</td><td>{item['weight']:.2f}</td><td>{item['cfp']:.2f}</td><td>{item['domestic_cfp']:.2f}</td>"
+                    table_body.appendChild(row)
+                
+                document.getElementById("total-weight").innerText = f"{totals['weight']:.2f}"
+                document.getElementById("total-cfp").innerText = f"{totals['cfp']:.2f}"
+                document.getElementById("total-domestic-cfp").innerText = f"{totals['domestic_cfp']:.2f}"
+                document.getElementById("summary-section").style.display = "block"
 
-        # --- 初期化処理 ---
-        async def main():
-            global food_database
-            # 今日の日付を表示
-            document.getElementById("current-date").innerText = f"今日の日付: {datetime.now().strftime('%Y年%m月%d日')}"
-            
-            # データベースを読み込む
-            try:
-                response = await window.fetch(DB_PATH)
-                js_proxy_db = await response.json()
-                food_database = js_proxy_db.to_py()
-            except Exception as e:
-                alert(f"データベースの読み込みに失敗しました: {e}")
-                return
+            # --- ダッシュボード ---
+            def update_dashboard(self):
+                cumulative_cfp = sum(r['total_cfp'] for r in self.all_records)
+                trees_needed = cumulative_cfp / self.TREE_ABSORPTION_KG_PER_YEAR
 
-            # プロフィールを確認
-            if check_profile():
-                update_dashboard()
+                stats_div = document.getElementById("dashboard-stats")
+                stats_div.innerHTML = f"<p><strong>今までの累計CFP:</strong> {cumulative_cfp:.2f} kg-CO₂</p>"
+                
+                forest_div = document.getElementById("my-forest")
+                forest_div.textContent = "🌳" * int(trees_needed) if trees_needed > 0 else "まだ森はありません。"
 
-        # --- アプリケーション実行 ---
-        asyncio.create_task(main())
+            # --- アプリケーション実行 ---
+            async def run(self):
+                # 今日の日付
+                document.getElementById("current-date").innerText = f"今日の日付: {datetime.now().strftime('%Y年%m月%d日')}"
+                
+                # DB読み込み
+                try:
+                    response = await window.fetch(self.DB_PATH)
+                    self.food_database = (await response.json()).to_py()
+                except Exception as e:
+                    alert(f"データベースの読み込みに失敗: {e}")
+                    return
+
+                # 記録読み込み
+                records_str = window.localStorage.getItem(self.RECORDS_STORAGE_KEY)
+                if records_str: self.all_records = json.loads(records_str)
+                
+                # UI初期化
+                self.user.load()
+                self.update_ui()
+
+        # --- アプリケーションのインスタンス化と実行 ---
+        app = CFPApp()
+        window.app = app
+        asyncio.create_task(app.run())
     </py-script>
 </body>
 </html>
