@@ -1,0 +1,52 @@
+{
+  "tomato": {
+    "name_jp": "トマト",
+    "avg_weight_kg": 0.15,
+    "domestic_origin": "Cameron Highlands, Pahang"
+  },
+  "rice": {
+    "name_jp": "米",
+    "avg_weight_kg": null,
+    "domestic_origin": "Kedah"
+  },
+  "chicken": {
+    "name_jp": "鶏肉",
+    "avg_weight_kg": null,
+    "domestic_origin": "Johor"
+  },
+  "carrot": {
+    "name_jp": "ニンジン",
+    "avg_weight_kg": 0.1,
+    "domestic_origin": "Cameron Highlands, Pahang"
+  },
+  "durian": {
+    "name_jp": "ドリアン",
+    "avg_weight_kg": 1.5,
+    "domestic_origin": "Raub, Pahang"
+  },
+  "palm_oil": {
+    "name_jp": "パーム油",
+    "avg_weight_kg": null,
+    "domestic_origin": "Sabah"
+  },
+  "tilapia": {
+    "name_jp": "ティラピア (魚)",
+    "avg_weight_kg": 0.5,
+    "domestic_origin": "Tasik Kenyir, Terengganu"
+  },
+  "kangkung": {
+    "name_jp": "クウシンサイ (カンコン)",
+    "avg_weight_kg": null,
+    "domestic_origin": "Selangor"
+  },
+  "chili_padi": {
+    "name_jp": "チリパディ (唐辛子)",
+    "avg_weight_kg": null,
+    "domestic_origin": "Kelantan"
+  },
+  "mango": {
+    "name_jp": "マンゴー",
+    "avg_weight_kg": 0.3,
+    "domestic_origin": "Perlis"
+  }
+}
