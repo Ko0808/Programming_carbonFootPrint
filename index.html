@@ -1,56 +1,65 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>わたしの森 - CFP計算アプリ</title>
-    <!-- PyScriptの読み込み -->
+    <title>CFP Calculator ~local production for local consumption~</title>
     <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css">
     <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
 
-    <!-- PyScriptの設定: 必要なライブラリをインストール -->
     <py-config>
-         packages = ["ssl"]
+         packages = ["ssl"] <!-- for security of data transmission for distance calculation -->
     </py-config>
 
     <style>
-        /* 全体のスタイル */
+        header{
+            text-align: center;
+            background-image: url('headerImage.jpg');
+            background-size: cover; 
+            background-position: center; 
+            color: white;
+            width: 100vw;
+            padding: 2em 0; 
+            position: relative;
+            z-index: 1000;
+        }
+        h1 { 
+            font-size: 2.2em;
+            margin-bottom: 0.5em; 
+            font-weight: Bold; 
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            color: #ffffff;
+        }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             background-color: #f4f7f6;
             color: #333;
             margin: 0;
             padding: 1.5em;
             display: flex;
             justify-content: center;
+            flex-direction: column; 
+            align-items: center; 
         }
         .container {
-            max-width: 900px;
             width: 100%;
             background-color: #ffffff;
             padding: 2em;
-            border-radius: 12px;
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
         }
-        h1, h2, h3 {
+        h2, h3 {
             color: #2c5b4c;
             border-bottom: 2px solid #e0e7e5;
             padding-bottom: 0.5em;
             margin-top: 1.5em;
         }
-        h1 { font-size: 2.2em; }
+        
         h2 { font-size: 1.8em; }
 
-        /* 各セクションのスタイル */
         .section {
             margin-bottom: 2.5em;
             padding: 1.5em;
-            background-color: #fcfdfd;
-            border: 1px solid #e0e7e5;
-            border-radius: 8px;
+            
         }
         
-        /* フォーム要素のスタイル */
         .form-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -88,7 +97,6 @@
             background-color: #5a6875;
         }
 
-        /* テーブルのスタイル */
         table {
             width: 100%;
             border-collapse: collapse;
@@ -111,20 +119,23 @@
             background-color: #e8f0ed;
         }
 
-        /* 結果表示エリアのスタイル */
         #dashboard-stats, #tree-display {
-            background-color: #e8f0ed;
             padding: 1em;
-            border-radius: 8px;
-            margin-top: 1em;
         }
         #my-forest {
             font-size: 2.5em;
             line-height: 1.6;
             word-break: break-all;
+            background-image: url('forestBack.jpg');
+            background-size: cover;
+            background-position: center;
+            padding: 1em;
+            border-radius: 8px;
+            min-height: 150px; 
+            color: white;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
         }
         
-        /* ローディング表示 */
         #loading {
             display: none;
             position: fixed;
@@ -142,106 +153,109 @@
     </style>
 </head>
 <body>
-    <div id="loading">計算中...</div>
+    <div id="loading">Loading...</div>
+
+    <header>
+        <h1>CFP Calculator ~local production for local consumption~</h1>
+    </header>
 
     <div class="container">
-        <h1>わたしの森 🌳 - カーボンフットプリント計算アプリ</h1>
 
         <!-- プロフィールセクション -->
         <div id="profile-section" class="section">
-            <h2 id="profile-title">ようこそ！</h2>
+            <h2 id="profile-title">HELLO</h2>
             <div id="profile-display"></div>
             <div id="profile-setup">
-                <p>まず、あなたの情報を登録してください。</p>
+                <p>Register Your Information</p>
                 <div class="form-grid">
                     <div>
-                        <label for="user-name">名前:</label>
-                        <input type="text" id="user-name" placeholder="例: Yamada Taro">
+                        <label for="user-name">Name:</label>
+                        <input type="text" id="user-name">
                     </div>
                     <div>
-                        <label for="user-residence">居住地 (マレーシアの州):</label>
-                        <input type="text" id="user-residence" placeholder="例: Selangor">
+                        <label for="user-residence">Location of Residence:</label>
+                        <input type="text" id="user-residence" placeholder="e.g., Selangor, Malaysia">
                     </div>
                     <div>
-                        <button py-click="app.save_user_profile">プロフィールを保存</button>
+                        <button py-click="app.SaveUserData">SAVE</button>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- 入力セクション -->
+        <!-- Input purchaced food -->
         <div id="main-app" class="section" style="display: none;">
-            <h2>食材の記録</h2>
+            <h2>your Note</h2>
             <p id="current-date"></p>
             <div class="form-grid">
                 <div>
-                    <label for="food-item">食材:</label>
+                    <label for="food-item">Food Item:</label>
                     <select id="food-item">
-                        <option value="tomato">トマト</option>
-                        <option value="rice">米</option>
-                        <option value="chicken">鶏肉</option>
-                        <option value="carrot">ニンジン</option>
-                        <option value="durian">ドリアン</option>
-                        <option value="palm_oil">パーム油</option>
-                        <option value="tilapia">ティラピア (魚)</option>
-                        <option value="kangkung">クウシンサイ (カンコン)</option>
-                        <option value="chili_padi">チリパディ (唐辛子)</option>
-                        <option value="mango">マンゴー</option>
+                        <option value="tomato">Tomato</option>
+                        <option value="rice">Rice</option>
+                        <option value="chicken">Chicken</option>
+                        <option value="carrot">Carrot</option>
+                        <option value="durian">Durian</option>
+                        <option value="palm_oil">Palm Oil</option>
+                        <option value="tilapia">Tilapia (Fish)</option>
+                        <option value="kangkung">Kangkung (Water Spinach)</option>
+                        <option value="chili_padi">Chili Padi (Bird's Eye Chili)</option>
+                        <option value="mango">Mango</option>
                     </select>
                 </div>
                 <div>
-                    <label for="quantity">数量:</label>
+                    <label for="quantity">Quantity:</label>
                     <input type="number" id="quantity" value="1" min="0.1" step="0.1">
                 </div>
                 <div>
-                    <label for="unit">単位:</label>
+                    <label for="unit">Unit:</label>
                     <select id="unit">
                         <option value="kg">kg</option>
-                        <option value="個">個</option>
+                        <option value="piece">piece</option>
                     </select>
                 </div>
                 <div>
-                    <label for="origin">産地:</label>
-                    <input type="text" id="origin" placeholder="例: Pahang, Malaysia または Thailand">
+                    <label for="origin">Origin:</label>
+                    <input type="text" id="origin" placeholder="e.g., Pahang, Malaysia">
                 </div>
                 <div>
-                    <button py-click="app.add_food_entry">今日のリストに追加</button>
+                    <button py-click="app.AddFood">Add to List</button>
                 </div>
             </div>
-            
-            <h3>今日の購入リスト</h3>
+
+            <h3>Today's List</h3>
             <table id="daily-list-table">
                 <thead>
-                    <tr><th>食材</th><th>数量</th><th>産地</th></tr>
+                    <tr><th>Food Item</th><th>Quantity</th><th>Origin</th></tr>
                 </thead>
                 <tbody>
-                    <!-- ここに今日のリストが追加される -->
+                    <!-- List of items -->
                 </tbody>
             </table>
-            <button py-click="app.calculate_daily_summary" class="secondary" style="margin-top: 1em;">この日のCFPを計算・集計する</button>
+            <button py-click="app.CalculateDaily" class="secondary" style="margin-top: 1em;">Calculate Daily CFP</button>
 
-            <!-- 集計結果テーブル -->
+            <!-- Summary -->
             <div id="summary-section" style="display: none;">
-                <h3>本日のCFP集計結果</h3>
+                <h3>CFP Summary</h3>
                 <table id="summary-table">
                     <thead>
-                        <tr><th>商品名</th><th>重量(kg)</th><th>CFP(kg-CO₂)</th><th>国産の場合(kg-CO₂)</th></tr>
+                        <tr><th>Food Item</th><th>Weight (kg)</th><th>CFP (kg-CO₂)</th><th>Domestic (kg-CO₂)</th></tr>
                     </thead>
                     <tbody></tbody>
                     <tfoot>
-                        <tr><td>合計</td><td id="total-weight"></td><td id="total-cfp"></td><td id="total-domestic-cfp"></td></tr>
+                        <tr><td>Total</td><td id="total-weight"></td><td id="total-cfp"></td><td id="total-domestic-cfp"></td></tr>
                     </tfoot>
                 </table>
             </div>
         </div>
 
-        <!-- ダッシュボードセクション -->
+        <!-- Dashboard -->
         <div id="dashboard-section" class="section" style="display: none;">
-            <h2>ダッシュボード</h2>
+            <h2>Dashboard</h2>
             <div id="dashboard-stats"></div>
             <div id="tree-display">
-                <h3>わたしの森</h3>
-                <p>今までに排出したカーボンを吸収するには、これだけの木が必要です。</p>
+                <h3>My Forest</h3>
+                <p>To absorb the carbon so far, you need this many trees.</p>
                 <div id="my-forest"></div>
             </div>
         </div>
@@ -255,85 +269,83 @@
         from pyscript import document, window
         from js import alert
 
-        # --- クラス定義 ---
-
         class User:
-            """ユーザー情報を管理するクラス"""
+            #Class for user data
             def __init__(self):
                 self.name = ""
                 self.residence = ""
-                self.storage_key = 'user_profile'
+                self.StrageKey = 'user_profile'
 
-            def is_registered(self):
-                """ユーザー情報が登録されているか確認する"""
+            def IsRegistered(self):
+                #Check if user information is registered
                 return bool(self.name and self.residence)
 
             def save(self, name, residence):
-                """プロフィールを保存する"""
+                #Save user data
                 self.name = name
                 self.residence = residence
                 profile = {"name": self.name, "residence": self.residence}
-                window.localStorage.setItem(self.storage_key, json.dumps(profile))
+                window.localStorage.setItem(self.StrageKey, json.dumps(profile)) #save to localStorage
             
             def load(self):
-                """プロフィールを読み込む"""
-                profile_str = window.localStorage.getItem(self.storage_key)
-                if profile_str:
-                    profile = json.loads(profile_str)
+                #load user data
+                ProfileStar = window.localStorage.getItem(self.StrageKey)
+                if ProfileStar:
+                    profile = json.loads(ProfileStar)
                     self.name = profile.get("name", "")
                     self.residence = profile.get("residence", "")
                     return True
                 return False
 
         class CFPApp:
-            """アプリケーション全体のロジックを管理するクラス"""
-            DB_PATH = './Database.json'
-            EMISSION_FACTOR_PER_KM = 0.0002
-            TREE_ABSORPTION_KG_PER_YEAR = 14
-            RECORDS_STORAGE_KEY = 'all_records'
+            #Class CFP Calculation
+            DBPath = './Database.json'
+            EmissionPerKM = 0.0002
+            TreePerYear = 14
+            StrageKey = 'AllRecords'
 
             def __init__(self):
                 self.user = User()
-                self.food_database = {}
-                self.daily_entries = []
-                self.all_records = []
+                self.FoodDatabase = {}
+                self.DailyInput = []
+                self.AllRecords = []
 
-            # --- UI制御 ---
-            def show_loading(self, is_visible):
-                display_style = "flex" if is_visible else "none"
-                document.getElementById("loading").style.display = display_style
+            # Loading
+            def ShowLoading(self, IsVisible):
+                DisplayStyle = "flex" if IsVisible else "none"
+                document.getElementById("loading").style.display = DisplayStyle
 
-            def update_ui(self):
-                """UI全体の状態を更新する"""
-                if self.user.is_registered():
-                    document.getElementById("profile-title").innerText = f"ようこそ、{self.user.name}さん！"
-                    document.getElementById("profile-display").innerText = f"居住地: {self.user.residence}"
+            def UpdateUI(self):
+                #update UI
+                if self.user.IsRegistered():
+                    document.getElementById("profile-title").innerText = f"HELLO, {self.user.name}!"
+                    document.getElementById("profile-display").innerText = f"Location: {self.user.residence}"
                     document.getElementById("profile-setup").style.display = "none"
                     document.getElementById("main-app").style.display = "block"
                     document.getElementById("dashboard-section").style.display = "block"
-                    self.update_dashboard()
+                    self.UpdateDashboard()
                 else:
                     document.getElementById("profile-setup").style.display = "block"
                     document.getElementById("main-app").style.display = "none"
                     document.getElementById("dashboard-section").style.display = "none"
 
-            # --- プロフィール関連 ---
-            def save_user_profile(self, event):
+            # User data
+            def SaveUserData(self, event):
                 name = document.getElementById("user-name").value
                 residence = document.getElementById("user-residence").value
                 if not name or not residence:
-                    alert("名前と居住地を入力してください。")
+                    alert("Please enter your name and location.")
                     return
                 
                 self.user.save(name, residence)
-                alert("プロフィールを保存しました。")
-                self.update_ui()
+                alert("Success!")
+                self.UpdateUI()
 
-            # --- 距離計算 (非同期) ---
+            # distance calculation
             @staticmethod
-            async def get_coords_from_api(place_name):
-                query = place_name.replace(" ", "+")
-                url = f"https://nominatim.openstreetmap.org/search?q={query}&format=jsonv2&limit=1"
+            async def GetCoords(PlaceName):
+                query = PlaceName.replace(" ", "+")
+                url = f"https://nominatim.openstreetmap.org/search?q={query}&format=jsonv2&limit=1" # API for calculate distance
                 try:
                     response = await window.fetch(url, method="GET")
                     if not response.ok: return None
@@ -342,8 +354,8 @@
                 except Exception: return None
 
             @staticmethod
-            def haversine_distance(coords1, coords2):
-                R = 6371  # 地球の半径 (km)
+            def DistanceCalculation(coords1, coords2):
+                R = 6371 
                 lat1, lon1 = map(math.radians, coords1)
                 lat2, lon2 = map(math.radians, coords2)
                 dlat = lat2 - lat1
@@ -351,128 +363,155 @@
                 a = math.sin(dlat / 2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2)**2
                 return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
-            async def get_distance(self, origin, destination):
-                coords1_task = self.get_coords_from_api(origin)
-                coords2_task = self.get_coords_from_api(destination)
-                coords1, coords2 = await asyncio.gather(coords1_task, coords2_task)
+            async def GetDistance(self, origin, destination):
+                Coords1Task = self.GetCoords(origin)
+                Coords2Task = self.GetCoords(destination)
+                coords1, coords2 = await asyncio.gather(Coords1Task, Coords2Task)
                 if coords1 and coords2:
-                    return self.haversine_distance(coords1, coords2)
-                alert(f"地名が特定できませんでした: {origin if not coords1 else ''} {destination if not coords2 else ''}")
+                    return self.DistanceCalculation(coords1, coords2)
+                alert(f"fail to find location: {origin if not coords1 else ''} {destination if not coords2 else ''}")
                 return None
 
-            # --- 食材リスト関連 ---
-            def add_food_entry(self, event):
-                food_id = document.getElementById("food-item").value
+            # --- FoodList ---
+            def AddFood(self, event):
+                FoodID = document.getElementById("food-item").value
                 origin = document.getElementById("origin").value
                 if not origin:
-                    alert("産地を入力してください。")
+                    alert("Please enter the origin.")
                     return
 
-                self.daily_entries.append({
-                    "food_id": food_id,
+                self.DailyInput.append({
+                    "FoodID": FoodID,
                     "quantity": float(document.getElementById("quantity").value),
                     "unit": document.getElementById("unit").value,
                     "origin": origin
                 })
-                self.update_daily_list_table()
+                self.UpdateDailyTable()
 
-            def update_daily_list_table(self):
-                table_body = document.querySelector("#daily-list-table tbody")
-                table_body.innerHTML = ""
-                for entry in self.daily_entries:
-                    food_info = self.food_database.get(entry['food_id'], {})
-                    food_name = food_info.get('name_jp', '不明')
+            def UpdateDailyTable(self):
+                TableBody = document.querySelector("#daily-list-table tbody")
+                TableBody.innerHTML = ""
+                for entry in self.DailyInput:
+                    FoodInfo = self.FoodDatabase.get(entry['FoodID'], {})
+                    FoodName = FoodInfo.get('NameEn', 'unknown')
                     row = document.createElement("tr")
-                    row.innerHTML = f"<td>{food_name}</td><td>{entry['quantity']} {entry['unit']}</td><td>{entry['origin']}</td>"
-                    table_body.appendChild(row)
 
-            # --- CFP計算と集計 ---
-            async def calculate_daily_summary(self, event):
-                if not self.daily_entries:
-                    alert("今日のリストに食材を追加してください。")
+                    #add to table oneby one
+                    NameCell = document.createElement("td")
+                    NameCell.textContent = FoodName
+                    row.appendChild(NameCell)
+
+                    QuantityCell = document.createElement("td")
+                    QuantityCell.textContent = f"{entry['quantity']} {entry['unit']}"
+                    row.appendChild(QuantityCell)
+
+                    OriginCell = document.createElement("td")
+                    OriginCell.textContent = entry['origin']
+                    row.appendChild(OriginCell)
+
+                    TableBody.appendChild(row)
+
+            # CFP clculation for a day
+            async def CalculateDaily(self, event):
+                if not self.DailyInput:
+                    alert("Add food item to the list")
                     return
 
-                self.show_loading(True)
-                summary_data, totals = [], {"weight": 0, "cfp": 0, "domestic_cfp": 0}
+                self.ShowLoading(True)
+                SumarryData, totals = [], {"weight": 0, "cfp": 0, "DomesticCFP": 0}
 
-                for entry in self.daily_entries:
-                    food_info = self.food_database[entry['food_id']]
-                    weight = entry['quantity'] * (food_info['avg_weight_kg'] or 1)
+                for entry in self.DailyInput:
+                    FoodInfo = self.FoodDatabase[entry['FoodID']]
+                    weight = entry['quantity'] * (FoodInfo['avg_weight_kg'] or 1)
                     
-                    distance = await self.get_distance(entry['origin'], self.user.residence)
-                    domestic_distance = await self.get_distance(food_info['domestic_origin'], self.user.residence)
+                    distance = await self.GetDistance(entry['origin'], self.user.residence)
+                    DomesticDistance = await self.GetDistance(FoodInfo['domestic_origin'], self.user.residence)
 
-                    if distance is None or domestic_distance is None:
-                        self.show_loading(False)
+                    if distance is None or DomesticDistance is None:
+                        self.ShowLoading(False)
                         return
 
-                    cfp = weight * distance * self.EMISSION_FACTOR_PER_KM
-                    domestic_cfp = weight * domestic_distance * self.EMISSION_FACTOR_PER_KM
+                    cfp = weight * distance * self.EmissionPerKM
+                    DomesticCFP = weight * DomesticDistance * self.EmissionPerKM
                     
-                    summary_data.append({"name": food_info['name_jp'], "weight": weight, "cfp": cfp, "domestic_cfp": domestic_cfp})
+                    SumarryData.append({"name": FoodInfo['NameEn'], "weight": weight, "cfp": cfp, "DomesticCFP": DomesticCFP})
                     totals["weight"] += weight
                     totals["cfp"] += cfp
-                    totals["domestic_cfp"] += domestic_cfp
+                    totals["DomesticCFP"] += DomesticCFP
 
-                # 結果表示とデータ保存
-                self.display_summary_table(summary_data, totals)
-                self.all_records.append({
+                # Result display and save
+                self.ShowSumarryTable(SumarryData, totals)
+                self.AllRecords.append({
                     "date": datetime.now().strftime('%Y-%m-%d'),
                     "total_cfp": totals["cfp"],
                 })
-                window.localStorage.setItem(self.RECORDS_STORAGE_KEY, json.dumps(self.all_records))
+                window.localStorage.setItem(self.StrageKey, json.dumps(self.AllRecords))
                 
-                self.daily_entries = []
-                self.update_daily_list_table()
-                self.update_dashboard()
-                self.show_loading(False)
+                self.DailyInput = []
+                self.UpdateDailyTable()
+                self.UpdateDashboard()
+                self.ShowLoading(False)
 
-            def display_summary_table(self, data, totals):
-                table_body = document.querySelector("#summary-table tbody")
-                table_body.innerHTML = ""
+            def ShowSumarryTable(self, data, totals):
+                TableBody = document.querySelector("#summary-table tbody")
+                TableBody.innerHTML = ""
                 for item in data:
                     row = document.createElement("tr")
-                    row.innerHTML = f"<td>{item['name']}</td><td>{item['weight']:.2f}</td><td>{item['cfp']:.2f}</td><td>{item['domestic_cfp']:.2f}</td>"
-                    table_body.appendChild(row)
+
+                    # add to table one by one
+                    NameCell = document.createElement("td")
+                    NameCell.textContent = item['name']
+                    row.appendChild(NameCell)
+
+                    WeightCell = document.createElement("td")
+                    WeightCell.textContent = f"{item['weight']:.2f}"
+                    row.appendChild(WeightCell)
+
+                    CFPCell = document.createElement("td")
+                    CFPCell.textContent = f"{item['cfp']:.2f}"
+                    row.appendChild(CFPCell)
+
+                    DomesticCFPCell = document.createElement("td")
+                    DomesticCFPCell.textContent = f"{item['DomesticCFP']:.2f}"
+                    row.appendChild(DomesticCFPCell)
+
+                    TableBody.appendChild(row)
                 
                 document.getElementById("total-weight").innerText = f"{totals['weight']:.2f}"
                 document.getElementById("total-cfp").innerText = f"{totals['cfp']:.2f}"
-                document.getElementById("total-domestic-cfp").innerText = f"{totals['domestic_cfp']:.2f}"
+                document.getElementById("total-domestic-cfp").innerText = f"{totals['DomesticCFP']:.2f}"
                 document.getElementById("summary-section").style.display = "block"
 
-            # --- ダッシュボード ---
-            def update_dashboard(self):
-                cumulative_cfp = sum(r['total_cfp'] for r in self.all_records)
-                trees_needed = cumulative_cfp / self.TREE_ABSORPTION_KG_PER_YEAR
+            # Dash board
+            def UpdateDashboard(self):
+                TotalCFP = sum(r['total_cfp'] for r in self.AllRecords)
+                TreesNeed = TotalCFP / self.TreePerYear
 
-                stats_div = document.getElementById("dashboard-stats")
-                stats_div.innerHTML = f"<p><strong>今までの累計CFP:</strong> {cumulative_cfp:.2f} kg-CO₂</p>"
+                TotalCFPDiv = document.getElementById("dashboard-stats")
+                TotalCFPDiv.innerHTML = f"<p><strong>Total CFP:</strong> {TotalCFP:.2f} kg-CO₂</p>"
                 
-                forest_div = document.getElementById("my-forest")
-                forest_div.textContent = "🌳" * int(trees_needed) if trees_needed > 0 else "まだ森はありません。"
+                ForestDiv = document.getElementById("my-forest")
+                ForestDiv.textContent = "🌳" * int(TreesNeed) if TreesNeed > 0 else "No forest you need yet."
 
-            # --- アプリケーション実行 ---
             async def run(self):
-                # 今日の日付
-                document.getElementById("current-date").innerText = f"今日の日付: {datetime.now().strftime('%Y年%m月%d日')}"
-                
-                # DB読み込み
+                #Today's date
+                document.getElementById("current-date").innerText = f"Date of Today: {datetime.now().strftime('%B %d, %Y')}"
+
+                # Load database
                 try:
-                    response = await window.fetch(self.DB_PATH)
-                    self.food_database = (await response.json()).to_py()
+                    response = await window.fetch(self.DBPath)
+                    self.FoodDatabase = (await response.json()).to_py()
                 except Exception as e:
-                    alert(f"データベースの読み込みに失敗: {e}")
+                    alert(f"Failed to load database: {e}")
                     return
 
-                # 記録読み込み
-                records_str = window.localStorage.getItem(self.RECORDS_STORAGE_KEY)
-                if records_str: self.all_records = json.loads(records_str)
+                # Load records
+                StrDataForRocal = window.localStorage.getItem(self.StrageKey)
+                if StrDataForRocal: self.AllRecords = json.loads(StrDataForRocal)
                 
-                # UI初期化
                 self.user.load()
-                self.update_ui()
+                self.UpdateUI()
 
-        # --- アプリケーションのインスタンス化と実行 ---
         app = CFPApp()
         window.app = app
         asyncio.create_task(app.run())
